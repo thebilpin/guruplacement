@@ -92,7 +92,7 @@ function SignInForm({ onClose }: { onClose?: () => void }) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="email"
@@ -230,7 +230,7 @@ function SignUpForm({ onClose }: { onClose?: () => void }) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="email"
@@ -320,9 +320,9 @@ function SignUpForm({ onClose }: { onClose?: () => void }) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="student">🎓 Student</SelectItem>
-                  <SelectItem value="rto">🏫 RTO (Registered Training Organisation)</SelectItem>
-                  <SelectItem value="provider">🏢 Provider</SelectItem>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="rto">RTO (Registered Training Organisation)</SelectItem>
+                  <SelectItem value="provider">Provider</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -365,7 +365,7 @@ export default function LoginModal({ onClose }: { onClose?: () => void }) {
         </div>
         <CardTitle className="text-2xl font-bold text-gray-900">Welcome Back</CardTitle>
         <CardDescription className="text-gray-600">
-          Sign in to your account or create a new one to continue
+          Access your account or create a new one to continue.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6 p-6">
