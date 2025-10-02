@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Check User Verification Status</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; }
+        .button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .button.success { background: #28a745; }
+        .result { margin: 15px 0; padding: 15px; border-radius: 4px; white-space: pre-wrap; font-family: monospace; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Check RTO User Status</h1>
+    
+    <div>
+        <button class="button" onclick="checkCurrentUserStatus()">👤 Check Current User Data</button>
+        <button class="button" onclick="checkVerificationAPI()">📋 Check in Verification System</button>
+        <button class="button success" onclick="forceRefreshUserData()">🔄 Force Refresh User Data</button>
+    </div>
+    
+    <div id="result"></div>
+
+    <script>
+        async function checkCurrentUserStatus() {
+            showLoading('Checking current user status...');
+            
+            try {
+                // Get current Firebase Auth user
+                const response = await fetch('/api/debug/users?email=rto@placementhero.com.au');
+                const data = await response.json();
+                
+                if (data.found && data.users.length > 0) {
+                    const user = data.users[0];
+                    const status = user.verificationStatus;
+                    
+                    let message = `CURRENT USER STATUS:\n\n`;
+                    message += `Email: ${user.email}\n`;
+                    message += `Name: ${user.name || user.firstName + ' ' + user.lastName}\n`;
+                    message += `Role: ${user.role}\n`;
+                    message += `Verification Status: ${status || 'NOT SET'}\n`;
+                    message += `Email Verified: ${user.emailVerified}\n`;
+                    message += `Created: ${formatDate(user.createdAt)}\n`;
+                    message += `Updated: ${formatDate(user.updatedAt)}\n\n`;
+                    
+                    if (status === 'verified') {
+                        message += `✅ USER IS VERIFIED - Should have access to RTO dashboard\n`;
+                        message += `If still seeing verification pending, try logging out and back in.`;
+                        showResult(message, 'success');
+                    } else if (status === 'pending') {
+                        message += `⏳ USER IS PENDING - Admin needs to verify\n`;
+                        message += `Status: Waiting for admin approval`;
+                        showResult(message, 'info');
+                    } else {
+                        message += `❌ USER STATUS ISSUE - Status: ${status || 'NOT SET'}\n`;
+                        message += `This may be why verification is not working.`;
+                        showResult(message, 'error');
+                    }
+                } else {
+                    showResult('USER NOT FOUND IN DATABASE!', 'error');
+                }
+            } catch (error) {
+                showResult('ERROR: ' + error.message, 'error');
+            }
+        }
+        
+        async function checkVerificationAPI() {
+            showLoading('Checking verification system...');
+            
+            try {
+                const response = await fetch('/api/admin/verification');
+                const data = await response.json();
+                
+                const allUsers = [
+                    ...data.pendingVerification,
+                    ...data.underReview,
+                    ...data.verified,
+                    ...data.rejected
+                ];
+                
+                const rtoUser = allUsers.find(user => user.email === 'rto@placementhero.com.au');
+                
+                if (rtoUser) {
+                    let message = `VERIFICATION SYSTEM STATUS:\n\n`;
+                    message += `Found in: ${data.verified.includes(rtoUser) ? 'VERIFIED USERS' : 
+                                         data.pending?.includes(rtoUser) ? 'PENDING USERS' :
+                                         data.underReview?.includes(rtoUser) ? 'UNDER REVIEW' :
+                                         data.rejected?.includes(rtoUser) ? 'REJECTED USERS' : 'UNKNOWN'}\n\n`;
+                    message += JSON.stringify(rtoUser, null, 2);
+                    
+                    showResult(message, rtoUser.verificationStatus === 'verified' ? 'success' : 'info');
+                } else {
+                    showResult('RTO USER NOT FOUND IN VERIFICATION SYSTEM!', 'error');
+                }
+            } catch (error) {
+                showResult('ERROR: ' + error.message, 'error');
+            }
+        }
+        
+        async function forceRefreshUserData() {
+            showLoading('Force refreshing user data...');
+            
+            try {
+                // This would ideally force a refresh of the user's authentication state
+                const message = `TO FORCE REFRESH USER DATA:\n\n1. Log out of the RTO account\n2. Log back in\n3. The auth system will re-fetch the user data from database\n4. If verification status is 'verified', user should access dashboard\n\nOR try these browser steps:\n1. Clear browser cache/cookies\n2. Hard refresh (Ctrl+F5)\n3. Log in again`;
+                
+                showResult(message, 'info');
+            } catch (error) {
+                showResult('ERROR: ' + error.message, 'error');
+            }
+        }
+        
+        function formatDate(dateString) {
+            if (!dateString) return 'No Date';
+            try {
+                return new Date(dateString).toLocaleString();
+            } catch {
+                return dateString;
+            }
+        }
+        
+        function showLoading(message) {
+            document.getElementById('result').innerHTML = message;
+            document.getElementById('result').className = 'result info';
+        }
+        
+        function showResult(message, type) {
+            document.getElementById('result').innerHTML = message;
+            document.getElementById('result').className = 'result ' + type;
+        }
+        
+        // Auto-check on page load
+        window.addEventListener('load', checkCurrentUserStatus);
+    </script>
+</body>
+</html>

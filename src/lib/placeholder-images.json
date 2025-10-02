@@ -1,0 +1,41 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "learning-1",
+      "description": "A person practicing first aid techniques on a mannequin.",
+      "imageUrl": "https://picsum.photos/seed/learning-1/600/400",
+      "imageHint": "first aid"
+    },
+    {
+      "id": "learning-2",
+      "description": "A diverse group of colleagues in a professional meeting, actively listening and communicating.",
+      "imageUrl": "https://picsum.photos/seed/learning-2/600/400",
+      "imageHint": "communication skills"
+    },
+    {
+      "id": "learning-challenge",
+      "description": "A compassionate caregiver talking with an elderly resident and their family in a comfortable setting.",
+      "imageUrl": "https://picsum.photos/seed/learning-challenge/600/400",
+      "imageHint": "challenge discussion"
+    },
+     {
+      "id": "learning-3",
+      "description": "A caregiver gently holding the hand of an elderly person, showing support and empathy.",
+      "imageUrl": "https://picsum.photos/seed/learning-3/600/400",
+      "imageHint": "dementia care"
+    },
+    {
+      "id": "learning-4",
+      "description": "A factory worker wearing a hard hat and safety vest, inspecting equipment.",
+      "imageUrl": "https://picsum.photos/seed/learning-4/600/400",
+      "imageHint": "workplace safety"
+    },
+    {
+      "id": "learning-5",
+      "description": "A person giving a presentation to a small group in a modern office.",
+      "imageUrl": "https://picsum.photos/seed/learning-5/600/400",
+      "imageHint": "leadership skills"
+    }
+  ]
+}

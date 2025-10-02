@@ -1,0 +1,141 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 84% 97%; /* Lighter blue-gray */
+    --foreground: 222 47% 11%;
+
+    --card: 255 100% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 255 100% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 217 91% 60%; /* sky-500 */
+    --primary-foreground: 210 20% 98%;
+
+    --secondary: 220 13% 91%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 220 13% 91%;
+    --muted-foreground: 220 9% 40%;
+
+    --accent: 220 13% 69%; /* slate-400 */
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 20% 98%;
+
+    --success: 142 71% 45%;
+    --warning: 48 96% 53%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 60%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 222 84% 97%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 85%;
+    --sidebar-accent: 217 91% 60%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-ring: 217 91% 60%;
+  }
+
+  .dark {
+    /* Define dark mode colors if needed */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+   ::-webkit-scrollbar { display: none;}
+}
+
+@layer components {
+    .gradient-bg {
+        background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+    }
+    .glass-effect {
+        backdrop-filter: blur(20px);
+        background: rgba(255, 255, 255, 0.95);
+    }
+    .card-hover {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card-hover:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    .progress-ring {
+        filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+    }
+    
+    /* 
+     * Standard Form Styling Components - DO NOT REMOVE OR MODIFY
+     * 
+     * ⚠️  CRITICAL: These classes are used throughout the application for consistent form styling
+     * 📖 Documentation: /docs/FORM_STYLING_STANDARDS.md
+     * 🔍 Used in: CreateTicketModal, TicketManagementModal, TicketDetailModal, and all future forms
+     * 
+     * Before making changes, read the documentation and understand the impact!
+     */
+    .form-container {
+        @apply border border-gray-200 rounded-lg p-6 bg-white space-y-6;
+    }
+    .form-section {
+        @apply border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-2;
+    }
+    .form-input-bordered {
+        @apply border-gray-300;
+    }
+    .form-info-section {
+        @apply border border-gray-200 rounded-lg p-4 bg-gray-50;
+    }
+    .form-success-section {
+        @apply border border-green-200 rounded-lg p-4 bg-green-50;
+    }
+    .form-warning-section {
+        @apply border border-yellow-200 rounded-lg p-4 bg-yellow-50;
+    }
+    .form-error-section {
+        @apply border border-red-200 rounded-lg p-4 bg-red-50;
+    }
+}
+
+
+@layer utilities {
+    .animate-pulse-glow {
+        animation: pulse-glow 2s ease-in-out infinite alternate;
+    }
+    @keyframes pulse-glow {
+        from { box-shadow: 0 0 20px hsla(var(--primary), 0.3); }
+        to { box-shadow: 0 0 40px hsla(var(--primary), 0.6); }
+    }
+    .notification-dot {
+        animation: notification-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes notification-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    .animated-gradient {
+        background-size: 200% 200%;
+        animation: gradient-animation 15s ease infinite;
+    }
+    @keyframes gradient-animation {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+}

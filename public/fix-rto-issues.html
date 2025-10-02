@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fix RTO User Issues</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; }
+        .button { background: #007bff; color: white; padding: 15px 25px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; font-size: 16px; }
+        .button.success { background: #28a745; }
+        .button.danger { background: #dc3545; }
+        .result { margin: 15px 0; padding: 15px; border-radius: 4px; white-space: pre-wrap; font-family: monospace; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        .issue { background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🛠️ Fix RTO User Complete Issues</h1>
+    
+    <div class="issue">
+        <h3>❌ IDENTIFIED PROBLEMS:</h3>
+        <ul>
+            <li><strong>Role:</strong> "rto" (should be "rto_admin")</li>
+            <li><strong>Verification Status:</strong> "NOT SET" (should be "verified")</li>
+            <li><strong>Email Verified:</strong> false (should be true)</li>
+        </ul>
+    </div>
+    
+    <div>
+        <button class="button success" onclick="fixAllUserIssues()">🔧 FIX ALL ISSUES NOW</button>
+        <button class="button" onclick="checkStatusAfterFix()">✅ Verify Fix Worked</button>
+        <button class="button danger" onclick="logoutInstructions()">🚪 Logout Instructions</button>
+    </div>
+    
+    <div id="result"></div>
+
+    <script>
+        async function fixAllUserIssues() {
+            showLoading('🔧 Fixing all user issues...');
+            
+            try {
+                // First, fix the verification status and role
+                const response = await fetch('/api/auth/fix-verification', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'rto@placementhero.com.au',
+                        verificationStatus: 'verified'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    let message = '✅ PARTIAL FIX COMPLETED!\n\n';
+                    message += JSON.stringify(result, null, 2);
+                    message += '\n\n🔄 Now attempting to fix role and email verification...';
+                    
+                    showResult(message, 'info');
+                    
+                    // Now fix the role and email verification
+                    await fixRoleAndEmail();
+                } else {
+                    showResult('❌ FAILED TO FIX ISSUES!\n\n' + JSON.stringify(result, null, 2), 'error');
+                }
+            } catch (error) {
+                showResult('❌ ERROR: ' + error.message, 'error');
+            }
+        }
+        
+        async function fixRoleAndEmail() {
+            try {
+                const response = await fetch('/api/auth/complete-fix', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'rto@placementhero.com.au',
+                        role: 'rto_admin',
+                        emailVerified: true,
+                        verificationStatus: 'verified'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    let message = '🎉 ALL ISSUES FIXED!\n\n';
+                    message += JSON.stringify(result, null, 2);
+                    message += '\n\n📝 NEXT STEPS:\n';
+                    message += '1. User must LOG OUT completely\n';
+                    message += '2. Clear browser cache/cookies\n';
+                    message += '3. Log back in with rto@placementhero.com.au\n';
+                    message += '4. Should now access RTO Dashboard instead of verification pending\n';
+                    
+                    showResult(message, 'success');
+                } else {
+                    // If complete-fix API doesn't exist, show manual instructions
+                    let message = '⚠️ PARTIAL FIX COMPLETED\n\n';
+                    message += 'Verification status updated, but you may need to:\n\n';
+                    message += '1. Go to Firebase Console\n';
+                    message += '2. Find user rto@placementhero.com.au\n';
+                    message += '3. Update role to "rto_admin"\n';
+                    message += '4. Set emailVerified to true\n\n';
+                    message += 'OR try the logout/login steps first to see if it works.';
+                    
+                    showResult(message, 'warning');
+                }
+            } catch (error) {
+                showResult('Error in complete fix: ' + error.message, 'warning');
+            }
+        }
+        
+        async function checkStatusAfterFix() {
+            showLoading('🔍 Checking if fix worked...');
+            
+            try {
+                const response = await fetch('/api/debug/users?email=rto@placementhero.com.au');
+                const data = await response.json();
+                
+                if (data.found && data.users.length > 0) {
+                    const user = data.users[0];
+                    
+                    let message = '📊 CURRENT STATUS AFTER FIX:\n\n';
+                    message += `Email: ${user.email}\n`;
+                    message += `Role: ${user.role} ${user.role === 'rto_admin' ? '✅' : '❌'}\n`;
+                    message += `Verification Status: ${user.verificationStatus || 'NOT SET'} ${user.verificationStatus === 'verified' ? '✅' : '❌'}\n`;
+                    message += `Email Verified: ${user.emailVerified} ${user.emailVerified ? '✅' : '❌'}\n\n`;
+                    
+                    const allGood = user.role === 'rto_admin' && 
+                                   user.verificationStatus === 'verified' && 
+                                   user.emailVerified;
+                    
+                    if (allGood) {
+                        message += '🎉 ALL ISSUES FIXED! User should now be able to access RTO dashboard.\n';
+                        message += 'If still having issues, user needs to log out and back in.';
+                        showResult(message, 'success');
+                    } else {
+                        message += '⚠️ Some issues remain. May need manual database fix.';
+                        showResult(message, 'warning');
+                    }
+                } else {
+                    showResult('❌ User not found in database!', 'error');
+                }
+            } catch (error) {
+                showResult('❌ ERROR: ' + error.message, 'error');
+            }
+        }
+        
+        function logoutInstructions() {
+            const message = `🚪 LOGOUT INSTRUCTIONS FOR RTO USER:
+
+1. 📱 COMPLETE LOGOUT:
+   - Click user menu/profile
+   - Click "Logout" or "Sign Out"
+   - Wait for redirect to login page
+
+2. 🧹 CLEAR BROWSER DATA:
+   - Press Ctrl+Shift+Delete (Windows) or Cmd+Shift+Delete (Mac)
+   - Select "Cookies and other site data"
+   - Select "Cached images and files"
+   - Click "Clear data"
+
+3. 🔄 HARD REFRESH:
+   - Press Ctrl+F5 (Windows) or Cmd+Shift+R (Mac)
+   - Or close browser completely and reopen
+
+4. 🔐 LOGIN AGAIN:
+   - Go to login page
+   - Enter: rto@placementhero.com.au
+   - Enter: MicrolaB631911
+   - Should now redirect to RTO Dashboard instead of verification pending
+
+If still not working after these steps, there may be a deeper database issue.`;
+            
+            showResult(message, 'info');
+        }
+        
+        function showLoading(message) {
+            document.getElementById('result').innerHTML = message;
+            document.getElementById('result').className = 'result info';
+        }
+        
+        function showResult(message, type) {
+            document.getElementById('result').innerHTML = message;
+            document.getElementById('result').className = 'result ' + type;
+        }
+        
+        // Auto-show the issues on page load
+        window.addEventListener('load', () => {
+            showResult('Click "🔧 FIX ALL ISSUES NOW" to resolve the identified problems.', 'info');
+        });
+    </script>
+</body>
+</html>

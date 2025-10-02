@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Emergency Fix - RTO Access</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; background: #f8f9fa; }
+        .emergency { background: #dc3545; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .button { background: #dc3545; color: white; padding: 15px 25px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; font-size: 16px; font-weight: bold; }
+        .button.success { background: #28a745; }
+        .button.info { background: #17a2b8; }
+        .result { margin: 15px 0; padding: 15px; border-radius: 4px; white-space: pre-wrap; font-family: monospace; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="emergency">
+        <h1>🚨 EMERGENCY RTO ACCESS FIX</h1>
+        <p><strong>User is still stuck on verification pending despite all fixes!</strong></p>
+        <p>This emergency tool will force override all settings.</p>
+    </div>
+    
+    <div>
+        <button class="button" onclick="emergencyOverride()">🚨 EMERGENCY OVERRIDE NOW</button>
+        <button class="button info" onclick="checkCurrentData()">🔍 Check Current Data</button>
+        <button class="button success" onclick="testAccess()">🧪 Test Access After Fix</button>
+    </div>
+    
+    <div id="result"></div>
+
+    <script>
+        async function checkCurrentData() {
+            showLoading('🔍 Checking current user data...');
+            
+            try {
+                const response = await fetch('/api/auth/emergency-fix', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'rto@placementhero.com.au',
+                        action: 'check'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    let message = '📊 CURRENT DATABASE STATE:\n\n';
+                    message += JSON.stringify(result.currentData, null, 2);
+                    showResult(message, 'info');
+                } else {
+                    showResult('❌ ERROR: ' + JSON.stringify(result, null, 2), 'error');
+                }
+            } catch (error) {
+                showResult('❌ ERROR: ' + error.message, 'error');
+            }
+        }
+        
+        async function emergencyOverride() {
+            showLoading('🚨 APPLYING EMERGENCY OVERRIDE...');
+            
+            try {
+                const response = await fetch('/api/auth/emergency-fix', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'rto@placementhero.com.au',
+                        action: 'override'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    let message = '🚨 EMERGENCY OVERRIDE APPLIED!\n\n';
+                    message += JSON.stringify(result, null, 2);
+                    message += '\n\n🔥 CRITICAL NEXT STEPS:\n';
+                    message += '1. RTO user MUST close browser completely\n';
+                    message += '2. Reopen browser (fresh session)\n';
+                    message += '3. Go to login page\n';
+                    message += '4. Login with rto@placementhero.com.au / MicrolaB631911\n';
+                    message += '5. Should now bypass verification and access dashboard\n\n';
+                    message += '⚠️ Check browser console for debug messages!';
+                    
+                    showResult(message, 'success');
+                } else {
+                    showResult('❌ EMERGENCY OVERRIDE FAILED: ' + JSON.stringify(result, null, 2), 'error');
+                }
+            } catch (error) {
+                showResult('❌ ERROR: ' + error.message, 'error');
+            }
+        }
+        
+        async function testAccess() {
+            const message = `🧪 TESTING ACCESS:
+
+1. Open a new browser tab/window
+2. Go to: http://localhost:9002/rto/dashboard
+3. If not logged in, login with:
+   - Email: rto@placementhero.com.au
+   - Password: MicrolaB631911
+
+EXPECTED RESULT:
+✅ Should access RTO dashboard directly
+✅ Should NOT see verification pending
+
+If still shows verification pending:
+1. Open browser console (F12)
+2. Look for debug messages starting with "🔍 RTO Layout"
+3. Check what the verification status shows
+4. Report back the console messages
+
+BROWSER CONSOLE LOCATION:
+- Chrome/Edge: F12 → Console tab
+- Firefox: F12 → Console tab
+- Safari: Develop → Show JavaScript Console`;
+            
+            showResult(message, 'info');
+        }
+        
+        function showLoading(message) {
+            document.getElementById('result').innerHTML = message;
+            document.getElementById('result').className = 'result info';
+        }
+        
+        function showResult(message, type) {
+            document.getElementById('result').innerHTML = message;
+            document.getElementById('result').className = 'result ' + type;
+        }
+        
+        // Auto-check on page load
+        window.addEventListener('load', checkCurrentData);
+    </script>
+</body>
+</html>

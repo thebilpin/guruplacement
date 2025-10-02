@@ -1,0 +1,832 @@
+// PlacementGuru Prisma Schema
+// Alternative to raw SQL - provides type-safe database access
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// ENUMS
+// ========================================
+
+enum UserRole {
+  student
+  rto_admin
+  provider_admin
+  supervisor
+  assessor
+  platform_admin
+}
+
+enum UserStatus {
+  active
+  inactive
+  suspended
+  pending
+}
+
+enum CourseType {
+  certificate_i
+  certificate_ii
+  certificate_iii
+  certificate_iv
+  diploma
+  advanced_diploma
+  bachelor
+  other
+}
+
+enum StudentStatus {
+  enrolled
+  in_placement
+  completed
+  withdrawn
+  suspended
+}
+
+enum PlacementStatus {
+  draft
+  published
+  applications_open
+  applications_closed
+  filled
+  cancelled
+}
+
+enum ApplicationStatus {
+  draft
+  submitted
+  under_review
+  accepted
+  rejected
+  withdrawn
+}
+
+enum ActivePlacementStatus {
+  scheduled
+  in_progress
+  completed
+  terminated
+  on_hold
+}
+
+enum AssessmentType {
+  formative
+  summative
+  competency
+  portfolio
+}
+
+enum CompetencyResult {
+  competent
+  not_yet_competent
+  not_assessed
+}
+
+enum DocumentType {
+  resume
+  cover_letter
+  certificate
+  police_check
+  working_with_children
+  first_aid
+  vaccination
+  insurance
+  assessment_evidence
+  timesheet
+  other
+}
+
+enum DocumentStatus {
+  pending
+  verified
+  expired
+  rejected
+}
+
+enum MessageType {
+  direct
+  group
+  announcement
+  system
+}
+
+enum MessageStatus {
+  sent
+  delivered
+  read
+}
+
+enum NotificationType {
+  placement_application
+  placement_accepted
+  placement_rejected
+  evaluation_due
+  document_expiring
+  hours_logged
+  announcement
+  message_received
+  assessment_graded
+  compliance_reminder
+}
+
+// ========================================
+// CORE USER MANAGEMENT
+// ========================================
+
+model User {
+  id             String      @id @default(cuid())
+  email          String      @unique
+  passwordHash   String      @map("password_hash")
+  firstName      String      @map("first_name")
+  lastName       String      @map("last_name")
+  phone          String?
+  avatarUrl      String?     @map("avatar_url")
+  role           UserRole
+  status         UserStatus  @default(pending)
+  emailVerified  Boolean     @default(false) @map("email_verified")
+  lastLogin      DateTime?   @map("last_login")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  // Relationships
+  sessions                    UserSession[]
+  rtoUsers                    RtoUser[]
+  providerUsers               ProviderUser[]
+  student                     Student?
+  createdPlacements           PlacementOpportunity[]
+  placementApplicationsReviewed PlacementApplication[] @relation("ReviewedBy")
+  supervisorEvaluations       SupervisorEvaluation[]
+  assessments                 Assessment[]
+  verifiedDocuments           Document[] @relation("DocumentVerifier")
+  sentMessages                Message[] @relation("Sender")
+  receivedMessages            Message[] @relation("Recipient")
+  createdMessageGroups        MessageGroup[]
+  messageGroupMemberships     MessageGroupMember[]
+  notifications               Notification[]
+  analyticsEvents             AnalyticsEvent[] @relation("AnalyticsUser")
+  auditLogs                   AuditLog[] @relation("AuditUser")
+  systemSettings              SystemSetting[]
+  approvedProviders           PlacementProvider[] @relation("ProviderApprover")
+  hourLogVerifications        PlacementHourLog[] @relation("VerifiedBy")
+  supervisorPlacements        StudentPlacement[] @relation("PlacementSupervisor")
+  assessorPlacements          StudentPlacement[] @relation("PlacementAssessor")
+  documents                   Document[]
+
+  @@map("users")
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+// ========================================
+// ORGANIZATIONS
+// ========================================
+
+model RTO {
+  id               String  @id @default(cuid())
+  name             String
+  code             String  @unique
+  description      String?
+  logoUrl          String? @map("logo_url")
+  website          String?
+  phone            String?
+  email            String?
+  addressLine1     String? @map("address_line1")
+  addressLine2     String? @map("address_line2")
+  city             String?
+  state            String?
+  postcode         String?
+  country          String  @default("Australia")
+  subscriptionPlan String  @default("basic") @map("subscription_plan")
+  isActive         Boolean @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  users           RtoUser[]
+  students        Student[]
+  courses         Course[]
+  partnerships    RtoProviderPartnership[]
+  messageGroups   MessageGroup[]
+
+  @@map("rtos")
+}
+
+model PlacementProvider {
+  id              String    @id @default(cuid())
+  name            String
+  industry        String?
+  description     String?
+  logoUrl         String?   @map("logo_url")
+  website         String?
+  phone           String?
+  email           String?
+  addressLine1    String?   @map("address_line1")
+  addressLine2    String?   @map("address_line2")
+  city            String?
+  state           String?
+  postcode        String?
+  country         String    @default("Australia")
+  rating          Decimal?  @db.Decimal(3, 2)
+  totalPlacements Int       @default(0) @map("total_placements")
+  isApproved      Boolean   @default(false) @map("is_approved")
+  approvedBy      String?   @map("approved_by")
+  approvedAt      DateTime? @map("approved_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relationships
+  approver           User? @relation("ProviderApprover", fields: [approvedBy], references: [id])
+  users              ProviderUser[]
+  partnerships       RtoProviderPartnership[]
+  placementOpportunities PlacementOpportunity[]
+  performanceMetrics ProviderPerformance[]
+
+  @@map("placement_providers")
+}
+
+model RtoProviderPartnership {
+  id               String    @id @default(cuid())
+  rtoId            String    @map("rto_id")
+  providerId       String    @map("provider_id")
+  status           String    @default("active")
+  partnershipStart DateTime? @map("partnership_start") @db.Date
+  partnershipEnd   DateTime? @map("partnership_end") @db.Date
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  rto      RTO               @relation(fields: [rtoId], references: [id], onDelete: Cascade)
+  provider PlacementProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([rtoId, providerId])
+  @@map("rto_provider_partnerships")
+}
+
+model RtoUser {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  rtoId       String   @map("rto_id")
+  position    String?
+  permissions Json?
+  isPrimary   Boolean  @default(false) @map("is_primary")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rto  RTO  @relation(fields: [rtoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, rtoId])
+  @@map("rto_users")
+}
+
+model ProviderUser {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  providerId  String   @map("provider_id")
+  position    String?
+  permissions Json?
+  isPrimary   Boolean  @default(false) @map("is_primary")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider PlacementProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, providerId])
+  @@map("provider_users")
+}
+
+// ========================================
+// EDUCATION SYSTEM
+// ========================================
+
+model Course {
+  id                   String     @id @default(cuid())
+  rtoId                String     @map("rto_id")
+  code                 String
+  name                 String
+  type                 CourseType
+  description          String?
+  durationWeeks        Int?       @map("duration_weeks")
+  totalPlacementHours  Int?       @map("total_placement_hours")
+  isActive             Boolean    @default(true) @map("is_active")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+
+  // Relationships
+  rto                  RTO                       @relation(fields: [rtoId], references: [id], onDelete: Cascade)
+  units                UnitOfCompetency[]
+  cohorts              Cohort[]
+  placementMatches     PlacementCourseMatch[]
+
+  @@unique([rtoId, code])
+  @@map("courses")
+}
+
+model UnitOfCompetency {
+  id                 String   @id @default(cuid())
+  courseId           String   @map("course_id")
+  code               String
+  name               String
+  description        String?
+  requiredHours      Int?     @map("required_hours")
+  isCore             Boolean  @default(true) @map("is_core")
+  assessmentCriteria Json?    @map("assessment_criteria")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  // Relationships
+  course            Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentProgress   StudentUnitProgress[]
+  assessments       Assessment[]
+
+  @@unique([courseId, code])
+  @@map("units_of_competency")
+}
+
+model Cohort {
+  id              String   @id @default(cuid())
+  courseId        String   @map("course_id")
+  name            String
+  startDate       DateTime @map("start_date") @db.Date
+  endDate         DateTime @map("end_date") @db.Date
+  maxStudents     Int?     @map("max_students")
+  currentStudents Int      @default(0) @map("current_students")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relationships
+  course        Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  students      Student[]
+  messageGroups MessageGroup[]
+
+  @@unique([courseId, name])
+  @@map("cohorts")
+}
+
+// ========================================
+// STUDENT SYSTEM
+// ========================================
+
+model Student {
+  id                            String        @id @default(cuid())
+  userId                        String        @unique @map("user_id")
+  studentId                     String        @unique @map("student_id")
+  rtoId                         String        @map("rto_id")
+  cohortId                      String        @map("cohort_id")
+  status                        StudentStatus @default(enrolled)
+  enrollmentDate                DateTime      @map("enrollment_date") @db.Date
+  expectedCompletionDate        DateTime?     @map("expected_completion_date") @db.Date
+  actualCompletionDate          DateTime?     @map("actual_completion_date") @db.Date
+  emergencyContactName          String?       @map("emergency_contact_name")
+  emergencyContactPhone         String?       @map("emergency_contact_phone")
+  emergencyContactRelationship  String?       @map("emergency_contact_relationship")
+  dietaryRequirements           String?       @map("dietary_requirements")
+  medicalConditions             String?       @map("medical_conditions")
+  accessibilityNeeds            String?       @map("accessibility_needs")
+  createdAt                     DateTime      @default(now()) @map("created_at")
+  updatedAt                     DateTime      @updatedAt @map("updated_at")
+
+  // Relationships
+  user               User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rto                RTO                       @relation(fields: [rtoId], references: [id])
+  cohort             Cohort                    @relation(fields: [cohortId], references: [id])
+  unitProgress       StudentUnitProgress[]
+  placementApplications PlacementApplication[]
+  placements         StudentPlacement[]
+  assessments        Assessment[]
+  documents          Document[]
+
+  @@map("students")
+}
+
+model StudentUnitProgress {
+  id             String    @id @default(cuid())
+  studentId      String    @map("student_id")
+  unitId         String    @map("unit_id")
+  status         String    @default("not_started")
+  hoursCompleted Int       @default(0) @map("hours_completed")
+  hoursRequired  Int       @map("hours_required")
+  completionDate DateTime? @map("completion_date") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  student Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  unit    UnitOfCompetency @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, unitId])
+  @@map("student_unit_progress")
+}
+
+// ========================================
+// PLACEMENT SYSTEM
+// ========================================
+
+model PlacementOpportunity {
+  id                   String          @id @default(cuid())
+  providerId           String          @map("provider_id")
+  title                String
+  description          String?
+  industry             String?
+  locationAddress      String?         @map("location_address")
+  locationCity         String?         @map("location_city")
+  locationState        String?         @map("location_state")
+  locationPostcode     String?         @map("location_postcode")
+  requiredHours        Int             @map("required_hours")
+  maxStudents          Int             @default(1) @map("max_students")
+  applicationDeadline  DateTime?       @map("application_deadline") @db.Date
+  placementStartDate   DateTime?       @map("placement_start_date") @db.Date
+  placementEndDate     DateTime?       @map("placement_end_date") @db.Date
+  requirements         String?
+  benefits             String?
+  hourlyRate           Decimal?        @map("hourly_rate") @db.Decimal(5, 2)
+  isPaid               Boolean         @default(false) @map("is_paid")
+  status               PlacementStatus @default(draft)
+  createdBy            String          @map("created_by")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+
+  // Relationships
+  provider         PlacementProvider        @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  creator          User                     @relation(fields: [createdBy], references: [id])
+  courseMatches    PlacementCourseMatch[]
+  applications     PlacementApplication[]
+  placements       StudentPlacement[]
+
+  @@map("placement_opportunities")
+}
+
+model PlacementCourseMatch {
+  id              String   @id @default(cuid())
+  placementId     String   @map("placement_id")
+  courseId        String   @map("course_id")
+  matchPercentage Int?     @map("match_percentage")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  placement PlacementOpportunity @relation(fields: [placementId], references: [id], onDelete: Cascade)
+  course    Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([placementId, courseId])
+  @@map("placement_course_matches")
+}
+
+model PlacementApplication {
+  id                  String            @id @default(cuid())
+  studentId           String            @map("student_id")
+  placementId         String            @map("placement_id")
+  status              ApplicationStatus @default(draft)
+  coverLetter         String?           @map("cover_letter")
+  resumeUrl           String?           @map("resume_url")
+  additionalDocuments Json?             @map("additional_documents")
+  submittedAt         DateTime?         @map("submitted_at")
+  reviewedAt          DateTime?         @map("reviewed_at")
+  reviewedBy          String?           @map("reviewed_by")
+  rejectionReason     String?           @map("rejection_reason")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  // Relationships
+  student   Student              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  placement PlacementOpportunity @relation(fields: [placementId], references: [id], onDelete: Cascade)
+  reviewer  User?                @relation("ReviewedBy", fields: [reviewedBy], references: [id])
+  studentPlacement StudentPlacement?
+
+  @@unique([studentId, placementId])
+  @@map("placement_applications")
+}
+
+model StudentPlacement {
+  id                   String                @id @default(cuid())
+  studentId            String                @map("student_id")
+  placementId          String                @map("placement_id")
+  applicationId        String                @unique @map("application_id")
+  supervisorId         String?               @map("supervisor_id")
+  assessorId           String?               @map("assessor_id")
+  status               ActivePlacementStatus @default(scheduled)
+  startDate            DateTime              @map("start_date") @db.Date
+  endDate              DateTime              @map("end_date") @db.Date
+  totalHoursRequired   Int                   @map("total_hours_required")
+  totalHoursCompleted  Int                   @default(0) @map("total_hours_completed")
+  currentProgress      Int                   @default(0) @map("current_progress")
+  riskLevel            String                @default("low") @map("risk_level")
+  riskFactors          String?               @map("risk_factors")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+
+  // Relationships
+  student          Student                  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  opportunity      PlacementOpportunity     @relation(fields: [placementId], references: [id], onDelete: Cascade)
+  application      PlacementApplication     @relation(fields: [applicationId], references: [id])
+  supervisor       User?                    @relation("PlacementSupervisor", fields: [supervisorId], references: [id])
+  assessor         User?                    @relation("PlacementAssessor", fields: [assessorId], references: [id])
+  hourLogs         PlacementHourLog[]
+  evaluations      SupervisorEvaluation[]
+  feedback         PlacementFeedback[]
+  assessments      Assessment[]
+  metrics          PlacementMetrics[]
+  messages         Message[]
+
+  @@map("student_placements")
+}
+
+model PlacementHourLog {
+  id                   String           @id @default(cuid())
+  placementId          String           @map("placement_id")
+  logDate              DateTime         @map("log_date") @db.Date
+  hoursWorked          Decimal          @map("hours_worked") @db.Decimal(4, 2)
+  activitiesPerformed  String?          @map("activities_performed")
+  reflectionNotes      String?          @map("reflection_notes")
+  supervisorVerified   Boolean          @default(false) @map("supervisor_verified")
+  supervisorNotes      String?          @map("supervisor_notes")
+  verifiedAt           DateTime?        @map("verified_at")
+  verifiedBy           String?          @map("verified_by")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  // Relationships
+  placement   StudentPlacement @relation(fields: [placementId], references: [id], onDelete: Cascade)
+  verifier    User?            @relation("VerifiedBy", fields: [verifiedBy], references: [id])
+
+  @@unique([placementId, logDate])
+  @@map("placement_hour_logs")
+}
+
+// ========================================
+// ASSESSMENT SYSTEM
+// ========================================
+
+model Assessment {
+  id                 String           @id @default(cuid())
+  studentId          String           @map("student_id")
+  unitId             String           @map("unit_id")
+  placementId        String?          @map("placement_id")
+  assessorId         String           @map("assessor_id")
+  assessmentType     AssessmentType   @map("assessment_type")
+  result             CompetencyResult @default(not_assessed)
+  feedback           String?
+  assessmentDate     DateTime?        @map("assessment_date") @db.Date
+  dueDate            DateTime?        @map("due_date") @db.Date
+  evidenceDocuments  Json?            @map("evidence_documents")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  // Relationships
+  student   Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  unit      UnitOfCompetency  @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  placement StudentPlacement? @relation(fields: [placementId], references: [id])
+  assessor  User              @relation(fields: [assessorId], references: [id])
+
+  @@map("assessments")
+}
+
+model SupervisorEvaluation {
+  id                     String           @id @default(cuid())
+  placementId            String           @map("placement_id")
+  supervisorId           String           @map("supervisor_id")
+  evaluationPeriod       String           @map("evaluation_period")
+  communicationRating    Int?             @map("communication_rating")
+  technicalSkillsRating  Int?             @map("technical_skills_rating")
+  professionalismRating  Int?             @map("professionalism_rating")
+  initiativeRating       Int?             @map("initiative_rating")
+  overallRating          Int?             @map("overall_rating")
+  strengths              String?
+  areasForImprovement    String?          @map("areas_for_improvement")
+  additionalComments     String?          @map("additional_comments")
+  evaluationDate         DateTime         @map("evaluation_date") @db.Date
+  createdAt              DateTime         @default(now()) @map("created_at")
+
+  // Relationships
+  placement  StudentPlacement @relation(fields: [placementId], references: [id], onDelete: Cascade)
+  supervisor User             @relation(fields: [supervisorId], references: [id])
+
+  @@map("supervisor_evaluations")
+}
+
+model PlacementFeedback {
+  id                          String           @id @default(cuid())
+  placementId                 String           @map("placement_id")
+  overallRating               Int?             @map("overall_rating")
+  supervisorRating            Int?             @map("supervisor_rating")
+  learningOpportunitiesRating Int?             @map("learning_opportunities_rating")
+  workplaceCultureRating      Int?             @map("workplace_culture_rating")
+  supportRating               Int?             @map("support_rating")
+  wouldRecommend              Boolean?         @map("would_recommend")
+  positiveAspects             String?          @map("positive_aspects")
+  improvementSuggestions      String?          @map("improvement_suggestions")
+  additionalComments          String?          @map("additional_comments")
+  feedbackDate                DateTime         @map("feedback_date") @db.Date
+  createdAt                   DateTime         @default(now()) @map("created_at")
+
+  // Relationships
+  placement StudentPlacement @relation(fields: [placementId], references: [id], onDelete: Cascade)
+
+  @@map("placement_feedback")
+}
+
+// ========================================
+// DOCUMENT MANAGEMENT
+// ========================================
+
+model Document {
+  id                String         @id @default(cuid())
+  userId            String         @map("user_id")
+  studentId         String?        @map("student_id")
+  documentType      DocumentType   @map("document_type")
+  title             String
+  description       String?
+  fileUrl           String         @map("file_url")
+  fileName          String         @map("file_name")
+  fileSize          Int?           @map("file_size")
+  mimeType          String?        @map("mime_type")
+  status            DocumentStatus @default(pending)
+  expiryDate        DateTime?      @map("expiry_date") @db.Date
+  verifiedBy        String?        @map("verified_by")
+  verifiedAt        DateTime?      @map("verified_at")
+  verificationNotes String?        @map("verification_notes")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  // Relationships
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student  Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  verifier User?    @relation("DocumentVerifier", fields: [verifiedBy], references: [id])
+
+  @@map("documents")
+}
+
+// ========================================
+// COMMUNICATION SYSTEM
+// ========================================
+
+model Message {
+  id              String           @id @default(cuid())
+  senderId        String           @map("sender_id")
+  recipientId     String?          @map("recipient_id")
+  subject         String?
+  content         String
+  messageType     MessageType      @default(direct) @map("message_type")
+  parentMessageId String?          @map("parent_message_id")
+  placementId     String?          @map("placement_id")
+  status          MessageStatus    @default(sent)
+  readAt          DateTime?        @map("read_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  // Relationships
+  sender      User              @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient   User?             @relation("Recipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  parentMessage Message?        @relation("MessageReplies", fields: [parentMessageId], references: [id])
+  replies     Message[]         @relation("MessageReplies")
+  placement   StudentPlacement? @relation(fields: [placementId], references: [id])
+
+  @@map("messages")
+}
+
+model MessageGroup {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdBy   String   @map("created_by")
+  rtoId       String?  @map("rto_id")
+  cohortId    String?  @map("cohort_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relationships
+  creator User                   @relation(fields: [createdBy], references: [id])
+  rto     RTO?                   @relation(fields: [rtoId], references: [id])
+  cohort  Cohort?                @relation(fields: [cohortId], references: [id])
+  members MessageGroupMember[]
+
+  @@map("message_groups")
+}
+
+model MessageGroupMember {
+  id       String   @id @default(cuid())
+  groupId  String   @map("group_id")
+  userId   String   @map("user_id")
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  group MessageGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("message_group_members")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  content   String?
+  relatedId String?          @map("related_id")
+  isRead    Boolean          @default(false) @map("is_read")
+  readAt    DateTime?        @map("read_at")
+  expiresAt DateTime?        @map("expires_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  // Relationships
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ========================================
+// ANALYTICS & REPORTING
+// ========================================
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  eventType String   @map("event_type")
+  eventData Json?    @map("event_data")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relationships
+  user User? @relation("AnalyticsUser", fields: [userId], references: [id])
+
+  @@map("analytics_events")
+}
+
+model PlacementMetrics {
+  id                        String           @id @default(cuid())
+  placementId               String           @unique @map("placement_id")
+  completionRate            Decimal?         @map("completion_rate") @db.Decimal(5, 2)
+  satisfactionScore         Decimal?         @map("satisfaction_score") @db.Decimal(3, 2)
+  competencyAchievementRate Decimal?         @map("competency_achievement_rate") @db.Decimal(5, 2)
+  timeToCompletionDays      Int?             @map("time_to_completion_days")
+  riskIncidents             Int              @default(0) @map("risk_incidents")
+  calculatedAt              DateTime         @default(now()) @map("calculated_at")
+
+  // Relationships
+  placement StudentPlacement @relation(fields: [placementId], references: [id], onDelete: Cascade)
+
+  @@map("placement_metrics")
+}
+
+model ProviderPerformance {
+  id                        String            @id @default(cuid())
+  providerId                String            @map("provider_id")
+  periodStart               DateTime          @map("period_start") @db.Date
+  periodEnd                 DateTime          @map("period_end") @db.Date
+  totalPlacements           Int               @default(0) @map("total_placements")
+  successfulCompletions     Int               @default(0) @map("successful_completions")
+  averageSatisfactionRating Decimal?          @map("average_satisfaction_rating") @db.Decimal(3, 2)
+  responseTimeHours         Decimal?          @map("response_time_hours") @db.Decimal(5, 2)
+  calculatedAt              DateTime          @default(now()) @map("calculated_at")
+
+  // Relationships
+  provider PlacementProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@map("provider_performance")
+}
+
+// ========================================
+// SYSTEM CONFIGURATION
+// ========================================
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  isPublic    Boolean  @default(false) @map("is_public")
+  updatedBy   String   @map("updated_by")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  // Relationships
+  updater User @relation(fields: [updatedBy], references: [id])
+
+  @@map("system_settings")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  action     String
+  tableName  String?  @map("table_name")
+  recordId   String?  @map("record_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relationships
+  user User? @relation("AuditUser", fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}

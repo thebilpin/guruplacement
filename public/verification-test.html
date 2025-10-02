@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verification Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .card { border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 8px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Verification API Test</h1>
+    <button onclick="testAPI()">Test Verification API</button>
+    <button onclick="initDB()">Initialize Database</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAPI() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p class="info">Testing API...</p>';
+            
+            try {
+                const response = await fetch('/api/admin/verification');
+                const data = await response.json();
+                
+                result.innerHTML = `
+                    <div class="card">
+                        <h3 class="success">✅ API Working!</h3>
+                        <p><strong>Pending:</strong> ${data.totals.pending}</p>
+                        <p><strong>Under Review:</strong> ${data.totals.underReview}</p>
+                        <p><strong>Verified:</strong> ${data.totals.verified}</p>
+                        <p><strong>Rejected:</strong> ${data.totals.rejected}</p>
+                        <p><strong>Total Users:</strong> ${data.totals.total}</p>
+                        <hr>
+                        <p><strong>Pending Users:</strong></p>
+                        ${data.pendingVerification.map(u => 
+                            `<div class="card">
+                                <strong>${u.firstName} ${u.lastName}</strong> (${u.email})<br>
+                                Role: ${u.role}<br>
+                                Organization: ${u.organization || 'N/A'}<br>
+                                Status: ${u.verificationStatus || 'pending'}
+                            </div>`
+                        ).join('')}
+                        <p><strong>Under Review Users:</strong></p>
+                        ${data.underReview.map(u => 
+                            `<div class="card">
+                                <strong>${u.firstName} ${u.lastName}</strong> (${u.email})<br>
+                                Role: ${u.role}<br>
+                                Organization: ${u.organization || 'N/A'}<br>
+                                Status: ${u.verificationStatus}<br>
+                                Notes: ${u.verificationNotes || 'None'}
+                            </div>`
+                        ).join('')}
+                    </div>
+                `;
+            } catch (error) {
+                result.innerHTML = '<p class="error">Error: ' + error.message + '</p>';
+            }
+        }
+
+        async function initDB() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p class="info">Initializing database...</p>';
+            
+            try {
+                const response = await fetch('/api/database/setup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'initialize',
+                        seedData: true
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    result.innerHTML = '<p class="success">✅ Database initialized! Now click "Test Verification API"</p>';
+                } else {
+                    result.innerHTML = '<p class="error">❌ Error: ' + data.message + '</p>';
+                }
+            } catch (error) {
+                result.innerHTML = '<p class="error">❌ Error: ' + error.message + '</p>';
+            }
+        }
+
+        // Auto-test on load
+        window.onload = function() {
+            testAPI();
+        }
+    </script>
+</body>
+</html>
